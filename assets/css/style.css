@@ -53,6 +53,11 @@ a {
   color: var(--forest-2);
 }
 
+/* Phần tử có thuộc tính hidden luôn bị ẩn (Bootstrap cũng có quy tắc này; giữ lại để không phụ thuộc Bootstrap) */
+[hidden] {
+  display: none !important;
+}
+
 /* Ẩn trên màn hình nhưng trình đọc màn hình vẫn đọc được (giống .visually-hidden của Bootstrap) */
 .visually-hidden {
   position: absolute !important;
@@ -496,6 +501,98 @@ a {
   flex: 0 0 auto;
   color: #8c988d;
   white-space: nowrap;
+}
+
+/* Hộp thoại xác nhận (dùng thẻ <dialog> có sẵn của trình duyệt) – hiện đang dùng ở trang Lịch canh tác */
+.confirm-dialog {
+  width: min(92vw, 26rem);
+  padding: 0;
+  border: 0;
+  border-radius: .9rem;
+  overflow: hidden;                     /* để thanh tiêu đề xanh bo góc theo hộp */
+  color: var(--ink);
+  background: #fff;
+  box-shadow: 0 24px 60px rgba(15, 35, 27, .35);
+}
+.confirm-dialog::backdrop {             /* lớp nền mờ phủ cả trang phía sau */
+  background: rgba(18, 38, 29, .5);
+  backdrop-filter: blur(3px);
+}
+.confirm-dialog[open] {
+  animation: confirm-pop .16s ease-out;
+}
+@keyframes confirm-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {   /* người dùng tắt hiệu ứng chuyển động trong hệ điều hành */
+  .confirm-dialog[open] {
+    animation: none;
+  }
+}
+.confirm-dialog__title {                /* thanh tiêu đề màu xanh */
+  margin: 0;
+  padding: .8rem 1.25rem;
+  color: #fff;
+  background: linear-gradient(135deg, var(--forest), var(--forest-2));
+  font-size: 1.05rem;
+  font-weight: 700;
+  text-align: center;
+}
+.confirm-dialog__body {
+  padding: 1.5rem 1.5rem 1rem;
+  text-align: center;
+}
+.confirm-dialog__text {
+  margin: 0 0 .9rem;
+  line-height: 1.55;
+  text-wrap: balance;                   /* chia đều chữ giữa các dòng, tránh một chữ lẻ rơi xuống dòng dưới */
+}
+.confirm-dialog__warning {              /* dòng cảnh báo màu cam, có dấu ⚠ */
+  display: flex;
+  justify-content: center;
+  gap: .45rem;
+  margin: 0;
+  color: #9a4a00;
+  font-size: .85rem;
+}
+.confirm-dialog__actions {              /* hai nút bằng nhau, nằm cạnh nhau */
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .75rem;
+  padding: 1rem 1.5rem 1.5rem;
+}
+.confirm-dialog__btn {
+  min-height: 2.9rem;
+  border: 1.5px solid transparent;
+  border-radius: .6rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.confirm-dialog__btn--ghost {           /* nút "Hủy" */
+  border-color: #c9cfc3;
+  color: var(--ink);
+  background: #fff;
+}
+.confirm-dialog__btn--ghost:hover {
+  background: var(--paper);
+}
+.confirm-dialog__btn--danger {          /* nút "Xóa kế hoạch" màu đỏ cà chua */
+  color: #fff;
+  background: var(--tomato);
+}
+.confirm-dialog__btn--danger:hover {
+  background: var(--tomato-dark);
+}
+.confirm-dialog__btn:focus-visible {
+  outline: 3px solid var(--moss);
+  outline-offset: 2px;
 }
 
 /* ====================================================================
@@ -1354,11 +1451,13 @@ a {
 }
 .calendar-form .form-control,
 .calendar-form .form-select {
+  min-height: 3rem;                    /* ô nhập và nút "Tạo lịch" cao bằng nhau → thẳng hàng cả đầu lẫn đáy */
   border-color: #dce4da;
   padding-top: .65rem;
   padding-bottom: .65rem;
 }
 .calendar-form .btn-danger {
+  min-height: 3rem;                    /* cùng chiều cao với ô nhập bên cạnh */
   border: 0;
   background: var(--forest);
 }
@@ -1495,6 +1594,110 @@ a {
   color: var(--forest);
   background: #e1eadb;
   font-weight: 800;
+}
+
+/* Lịch – tiêu đề form (Tạo kế hoạch mới / Chỉnh sửa kế hoạch) */
+.calendar-form__title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.calendar-form__title h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+.calendar-form__cancel {               /* nút chữ "Hủy chỉnh sửa" */
+  padding: 0;
+  border: 0;
+  color: var(--forest);
+  background: none;
+  font-size: .9rem;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.calendar-form__cancel:focus-visible {
+  outline: 3px solid var(--moss);
+  outline-offset: 2px;
+}
+
+/* Lịch – danh sách các kế hoạch đã tạo (bấm để chọn kế hoạch xem) */
+.plan-switcher {
+  margin-bottom: 1.25rem;
+}
+.plan-switcher__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .6rem;
+  margin: .5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.plan-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: .1rem;
+  min-width: 11rem;
+  max-width: 100%;
+  padding: .65rem .9rem;
+  border: 1.5px solid var(--line);
+  border-radius: .7rem;
+  color: var(--ink);
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+.plan-chip:hover {
+  border-color: var(--moss);
+  background: var(--paper);
+}
+.plan-chip[aria-pressed="true"] {      /* kế hoạch đang được chọn */
+  border-color: var(--forest);
+  background: #eef3e9;
+  box-shadow: inset 0 0 0 1px var(--forest);
+}
+.plan-chip:focus-visible {
+  outline: 3px solid var(--moss);
+  outline-offset: 2px;
+}
+.plan-chip__name {
+  max-width: 16rem;
+  overflow: hidden;
+  font-size: .95rem;
+  font-weight: 700;
+  text-overflow: ellipsis;             /* tên dài thì cắt và thêm "..." */
+  white-space: nowrap;
+}
+.plan-chip__meta {
+  color: #5b685f;
+  font-size: .78rem;
+}
+
+/* Lịch – nút Sửa / Xóa kế hoạch và trạng thái chưa có kế hoạch */
+.calendar-progress__actions {
+  display: flex;
+  gap: .5rem;
+}
+.calendar-empty {
+  padding: 2rem 1.25rem;
+  border: 1px dashed #c9cfc3;
+  border-radius: .7rem;
+  color: #5b685f;
+  background: var(--paper);
+  text-align: center;
+}
+@media (max-width: 575.98px) {
+  .calendar-progress {
+    flex-wrap: wrap;
+  }
+  .plan-chip {
+    flex: 1 1 100%;
+  }
 }
 
 /* ====================================================================

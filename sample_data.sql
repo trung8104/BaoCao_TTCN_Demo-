@@ -62,19 +62,7 @@ INSERT INTO pests (name, slug, type, description, cause, prevention, treatment, 
 ('Tuyến trùng sưng rễ(Root-Knot Nematodes)', 'tuyen-trung-sung-re', 'pest', 'Tấn công rễ tạo bướu sưng nốt sần dày đặc, phá hủy rễ khiến cây không hút được nước.', 'Tuyến trùng Meloidogyne spp. Trong đất', 'Trồng giống kháng tuyến trùng (gen Mi); luân canh cây khác họ.', 'Xử lý đất bằng thuốc trừ tuyến trùng hoặc chất xông hơi đất.', 'Tài liệu: bảng-tra-cuu-tong-hop-sau-benh-ca-chua-v2.docx')
 ON DUPLICATE KEY UPDATE name=VALUES(name), type=VALUES(type), description=VALUES(description), cause=VALUES(cause), prevention=VALUES(prevention), treatment=VALUES(treatment), source=VALUES(source);
 
-<<<<<<< Updated upstream
-INSERT INTO pest_symptoms (pest_id, symptom_id) VALUES
-((SELECT id FROM pests WHERE slug='benh-moc-suong'),        (SELECT id FROM symptoms WHERE name='Đốm nâu trên lá')),
-((SELECT id FROM pests WHERE slug='benh-moc-suong'),        (SELECT id FROM symptoms WHERE name='Thân thối hoặc có vết nâu')),
-((SELECT id FROM pests WHERE slug='benh-moc-suong'),        (SELECT id FROM symptoms WHERE name='Lớp phấn trắng hoặc mốc xám trên lá')),
-((SELECT id FROM pests WHERE slug='benh-heo-xanh-vi-khuan'),(SELECT id FROM symptoms WHERE name='Lá héo rũ')),
-((SELECT id FROM pests WHERE slug='benh-heo-xanh-vi-khuan'),(SELECT id FROM symptoms WHERE name='Thân thối hoặc có vết nâu')),
-((SELECT id FROM pests WHERE slug='sau-duc-qua'),           (SELECT id FROM symptoms WHERE name='Quả có lỗ đục, bị sâu ăn')),
-((SELECT id FROM pests WHERE slug='thoi-day-qua'),          (SELECT id FROM symptoms WHERE name='Đốm đen hoặc thối ở đáy quả')),
-((SELECT id FROM pests WHERE slug='benh-xoan-la-do-virus'), (SELECT id FROM symptoms WHERE name='Lá xoăn, co rút')),
-((SELECT id FROM pests WHERE slug='benh-xoan-la-do-virus'), (SELECT id FROM symptoms WHERE name='Cây chậm lớn, còi cọc')),
-((SELECT id FROM pests WHERE slug='benh-xoan-la-do-virus'), (SELECT id FROM symptoms WHERE name='Hoa rụng, không đậu quả'));
-=======
+
 INSERT INTO symptoms (name, body_part) VALUES
 ('Đốm nhỏ úng nước, hoại tử nâu, rụng lá sớm; đốm quả tròn đen', 'whole_plant'),
 ('Đốm ti li màu đen trên lá/thân; đốm quả có viền xanh', 'whole_plant'),

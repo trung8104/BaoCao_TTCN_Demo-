@@ -111,7 +111,17 @@ CREATE TABLE IF NOT EXISTS symptoms (
   UNIQUE KEY uq_symptoms_name (name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 8. Quan he nhieu-nhieu giua sau benh va trieu chung
+-- 8. Quan he nhieu-nhieu giua trieu chung va bo phan bi anh huong
+CREATE TABLE IF NOT EXISTS symptom_body_parts (
+  symptom_id INT UNSIGNED NOT NULL,
+  body_part  ENUM('leaf', 'stem', 'flower', 'fruit', 'root', 'whole_plant') NOT NULL,
+  PRIMARY KEY (symptom_id, body_part),
+  KEY idx_symptom_body_parts_part (body_part),
+  CONSTRAINT fk_symptom_body_parts_symptom
+    FOREIGN KEY (symptom_id) REFERENCES symptoms(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 9. Quan he nhieu-nhieu giua sau benh va trieu chung
 CREATE TABLE IF NOT EXISTS pest_symptoms (
   pest_id    INT UNSIGNED NOT NULL,
   symptom_id INT UNSIGNED NOT NULL,
@@ -123,7 +133,7 @@ CREATE TABLE IF NOT EXISTS pest_symptoms (
     FOREIGN KEY (symptom_id) REFERENCES symptoms(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 9. Anh gan voi bai viet hoac sau benh.
+-- 10. Anh gan voi bai viet hoac sau benh.
 -- Moi anh chi gan voi mot trong hai loai doi tuong; PHP kiem tra quy tac nay.
 CREATE TABLE IF NOT EXISTS images (
   id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -159,3 +169,25 @@ ON DUPLICATE KEY UPDATE
   password_hash = VALUES(password_hash),
   full_name = VALUES(full_name),
   is_active = 1;
+
+-- Du lieu danh muc nen. Dung INSERT IGNORE de import lai khong trung ban ghi.
+  INSERT IGNORE INTO roles (name, description) VALUES
+  ('admin',  'Quan tri vien: toan quyen, bao gom quan ly tai khoan'),
+  ('editor', 'Bien tap vien: quan ly bai viet va thong tin sau benh');
+
+INSERT IGNORE INTO categories (name, slug, sort_order) VALUES
+  ('Giới thiệu cây cà chua và các giống phổ biến', 'gioi-thieu-giong', 1),
+  ('Chuẩn bị đất và làm đất', 'chuan-bi-dat', 2),
+  ('Gieo hạt và ươm cây con', 'gieo-hat-uom-cay', 3),
+  ('Trồng, làm giàn, tỉa cành', 'trong-lam-gian-tia-canh', 4),
+  ('Tưới nước và bón phân', 'tuoi-nuoc-bon-phan', 5),
+  ('Sâu bệnh hại và cách phòng trừ', 'sau-benh-hai', 6),
+  ('Thu hoạch và bảo quản', 'thu-hoach-bao-quan', 7);
+
+INSERT IGNORE INTO growth_stages (name, slug, sort_order) VALUES
+  ('Chuẩn bị đất', 'chuan-bi-dat', 1),
+  ('Gieo hạt, ươm cây con', 'gieo-uom', 2),
+  ('Cây con sau trồng', 'cay-con', 3),
+  ('Sinh trưởng thân lá', 'sinh-truong', 4),
+  ('Ra hoa, đậu quả', 'ra-hoa-dau-qua', 5),
+  ('Thu hoạch', 'thu-hoach', 6);

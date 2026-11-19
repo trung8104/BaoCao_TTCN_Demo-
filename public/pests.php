@@ -31,7 +31,7 @@ $selected = array_map('intval', $f['symptoms']);
 //           ['leaf' => [các triệu chứng ở lá], 'stem' => [...], 'flower' => [...], ...]
 $groups = [];
 foreach (get_symptoms() as $s) {
-    $groups[$s['body_part']][] = $s;
+    foreach ($s['body_parts'] as $part) $groups[$part][] = $s;
 }
 
 require __DIR__ . '/../includes/header.php';
@@ -89,9 +89,9 @@ require __DIR__ . '/../includes/header.php';
 
                             <div class="symptom-group__body">
                                 <?php foreach ($list as $s): ?>
-                                    <label class="symptom-option" for="s<?= (int)$s['id'] ?>">
+                                    <label class="symptom-option" for="s<?= (int)$s['id'] ?>-<?= e($part) ?>">
                                         <input class="symptom-option__box" type="checkbox" name="symptoms[]"
-                                            value="<?= (int)$s['id'] ?>" id="s<?= (int)$s['id'] ?>"
+                                            value="<?= (int)$s['id'] ?>" id="s<?= (int)$s['id'] ?>-<?= e($part) ?>"
                                             <?= in_array((int)$s['id'], $selected, true) ? 'checked' : '' ?>>
                                         <span class="symptom-option__text"><?= e($s['name']) ?></span>
                                     </label>

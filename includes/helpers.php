@@ -67,6 +67,18 @@ function like_escape($s) { return '%' . addcslashes($s, '%_\\') . '%'; }
 // Hiển thị nội dung bài viết an toàn: "## " = tiêu đề, "- " = gạch đầu dòng, dòng trống = đoạn mới
 function render_content($text) {
     $html = ''; $para = []; $inList = false;
+    $renderLine = function ($line) {
+        $parts = preg_split('/(\[\[image:[a-f0-9]{16}\.(?:jpg|png|gif|webp)\]\])/', $line, -1, PREG_SPLIT_DELIM_CAPTURE);
+        $out = '';
+        foreach ($parts as $part) {
+            if (preg_match('/^\[\[image:([a-f0-9]{16}\.(?:jpg|png|gif|webp))\]\]$/', $part, $match)) {
+                $out .= '<img class="img-fluid rounded my-2" src="' . e(upload_url($match[1])) . '" alt="">';
+            } else {
+                $out .= e($part);
+            }
+        }
+        return $out;
+    };
     $flush = function () use (&$html, &$para) {
         if ($para) { $html .= '<p>' . implode('<br>', $para) . '</p>'; $para = []; }
     };
@@ -76,8 +88,8 @@ function render_content($text) {
         if ($t === '') { $flush(); $close(); continue; }
         if (preg_match('/^##\s+(.+)$/u', $t, $m)) { $flush(); $close(); $html .= '<h3>' . e($m[1]) . '</h3>'; }
         elseif (preg_match('/^[-*]\s+(.+)$/u', $t, $m)) {
-            $flush(); if (!$inList) { $html .= '<ul>'; $inList = true; } $html .= '<li>' . e($m[1]) . '</li>';
-        } else { $close(); $para[] = e($t); }
+            $flush(); if (!$inList) { $html .= '<ul>'; $inList = true; } $html .= '<li>' . $renderLine($m[1]) . '</li>';
+        } else { $close(); $para[] = $renderLine($t); }
     }
     $flush(); $close();
     return $html;

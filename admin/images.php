@@ -3,8 +3,17 @@ require_once __DIR__ . '/../includes/auth.php';
 require_login();
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete') {
     csrf_verify();
-    $fp = q("SELECT file_path FROM images WHERE id = ?", [(int)$_POST['id']])->fetchColumn();
-    if ($fp) { q("DELETE FROM images WHERE id = ?", [(int)$_POST['id']]); delete_image_file($fp); flash('success', 'Đã xóa ảnh.'); }
+  $image = q("SELECT file_path, post_id FROM images WHERE id = ?", [(int)$_POST['id']])->fetch();
+  if ($image) {
+    $fp = $image['file_path'];
+    if ($image['post_id']) {
+      q("UPDATE posts SET thumbnail = NULL WHERE id = ? AND thumbnail = ?", [$image['post_id'], $fp]);
+      q("UPDATE posts SET content = REPLACE(content, ?, '') WHERE id = ?", ['[[image:' . $fp . ']]', $image['post_id']]);
+    }
+    q("DELETE FROM images WHERE id = ?", [(int)$_POST['id']]);
+    delete_image_file($fp);
+    flash('success', 'Đã xóa ảnh.');
+  }
     redirect('admin/images.php');
 }
 $page_title = 'Thư viện ảnh'; $active = 'images';

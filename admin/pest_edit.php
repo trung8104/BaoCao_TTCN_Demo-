@@ -4,12 +4,7 @@ require_login();
 $id = (int)($_GET['id'] ?? 0);
 $pest = $id ? q("SELECT * FROM pests WHERE id = ?", [$id])->fetch() : null;
 if ($id && !$pest) { flash('error', 'Không tìm thấy sâu bệnh.'); redirect('admin/pests.php'); }
-$symptoms = q("SELECT s.id, s.name,
-                      COALESCE(GROUP_CONCAT(DISTINCT sb.body_part ORDER BY FIELD(sb.body_part,'leaf','stem','flower','fruit','root','whole_plant') SEPARATOR ','), s.body_part) AS body_parts,
-                      COALESCE(MIN(FIELD(sb.body_part,'leaf','stem','flower','fruit','root','whole_plant')),
-                               FIELD(s.body_part,'leaf','stem','flower','fruit','root','whole_plant')) AS part_order
-               FROM symptoms s LEFT JOIN symptom_body_parts sb ON sb.symptom_id = s.id
-               GROUP BY s.id ORDER BY part_order, s.name")->fetchAll();
+$symptoms = q("SELECT * FROM symptoms ORDER BY FIELD(body_part,'leaf','stem','flower','fruit','root','whole_plant'), name")->fetchAll();
 $labels = ['leaf'=>'Lá','stem'=>'Thân','flower'=>'Hoa','fruit'=>'Quả','root'=>'Rễ','whole_plant'=>'Toàn cây'];
 $errors = [];
 $data = $pest ?: ['name' => '', 'slug' => '', 'type' => 'disease', 'description' => '', 'cause' => '', 'prevention' => '', 'treatment' => '', 'source' => ''];
@@ -97,9 +92,9 @@ $fields = ['description' => 'Mô tả', 'cause' => 'Nguyên nhân', 'prevention'
     <div class="card mb-3"><div class="card-body">
       <div class="fw-semibold mb-2">Triệu chứng nhận biết</div>
       <?php if (!$symptoms): ?><div class="text-muted small">Chưa có triệu chứng. <a href="<?= url('admin/symptoms.php') ?>">Thêm triệu chứng</a></div><?php endif; ?>
-      <?php $last = null; foreach ($symptoms as $s): $parts = explode(',', $s['body_parts']); $groupPart = $parts[0]; if ($groupPart !== $last) { $last = $groupPart; echo '<div class="small fw-bold text-uppercase text-muted mt-2">' . e($labels[$last] ?? $last) . '</div>'; } ?>
+      <?php $last = null; foreach ($symptoms as $s): if ($s['body_part'] !== $last) { $last = $s['body_part']; echo '<div class="small fw-bold text-uppercase text-muted mt-2">' . e($labels[$last] ?? $last) . '</div>'; } ?>
         <div class="form-check"><input class="form-check-input" type="checkbox" name="symptoms[]" value="<?= (int)$s['id'] ?>" id="sy<?= (int)$s['id'] ?>" <?= in_array((int)$s['id'], array_map('intval', $chosen), true) ? 'checked' : '' ?>>
-          <label class="form-check-label" for="sy<?= (int)$s['id'] ?>"><?= e($s['name']) ?> <span class="text-muted small">(<?= e(body_part_label($parts)) ?>)</span></label></div>
+          <label class="form-check-label" for="sy<?= (int)$s['id'] ?>"><?= e($s['name']) ?></label></div>
       <?php endforeach; ?>
       <div class="d-grid mt-3"><button class="btn btn-danger">Lưu</button></div>
     </div></div>

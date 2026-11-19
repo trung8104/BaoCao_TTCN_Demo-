@@ -34,9 +34,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!q("SELECT id FROM categories WHERE id = ?", [$data['category_id']])->fetch()) $errors[] = 'Hãy chọn chuyên mục.';
     if ($data['growth_stage_id'] && !q("SELECT id FROM growth_stages WHERE id = ?", [$data['growth_stage_id']])->fetch()) $data['growth_stage_id'] = null;
 
+    $newThumb = null; $uploaded = [];
     if (!$errors) {
         $slug = unique_slug('posts', slugify($data['slug'] !== '' ? $data['slug'] : $data['title']), $id);
-        $newThumb = null; $uploaded = [];
         try {
             if (!empty($_FILES['thumbnail']['name']) && $_FILES['thumbnail']['error'] !== UPLOAD_ERR_NO_FILE) $newThumb = save_uploaded_image($_FILES['thumbnail']);
             foreach (normalize_files($_FILES['images'] ?? []) as $f) {
@@ -63,12 +63,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $id = (int)$pdo->lastInsertId();
             }
             foreach ($uploaded as $u) q("INSERT INTO images (file_path, alt_text, post_id, uploaded_by) VALUES (?,?,?,?)", [$u, $data['title'], $id, current_user()['id']]);
+            if ($thumb) {
+              $exists = q("SELECT id FROM images WHERE post_id = ? AND file_path = ? LIMIT 1", [$id, $thumb])->fetchColumn();
+              if (!$exists) q("INSERT INTO images (file_path, alt_text, post_id, uploaded_by) VALUES (?,?,?,?)", [$thumb, $data['title'], $id, current_user()['id']]);
+            }
+            preg_match_all('/\\[\\[image:([a-f0-9]{16}\\.(?:jpg|png|gif|webp))\\]\\]/', $data['content'], $contentImages);
+            foreach (array_unique($contentImages[1]) as $imageFile) {
+              if (!is_file(config()['upload_dir'] . $imageFile)) continue;
+              $exists = q("SELECT id FROM images WHERE post_id = ? AND file_path = ? LIMIT 1", [$id, $imageFile])->fetchColumn();
+              if (!$exists) q("INSERT INTO images (file_path, alt_text, post_id, uploaded_by) VALUES (?,?,?,?)", [$imageFile, $data['title'], $id, current_user()['id']]);
+            }
             $del = array_map('intval', (array)($_POST['delete_images'] ?? []));
             $toDelete = [];
             foreach ($del as $imgId) {
                 $fp = q("SELECT file_path FROM images WHERE id = ? AND post_id = ?", [$imgId, $id])->fetchColumn();
                 if ($fp) { q("DELETE FROM images WHERE id = ?", [$imgId]); $toDelete[] = $fp; }
             }
+            if ($oldThumb && $oldThumb !== $thumb) q("DELETE FROM images WHERE post_id = ? AND file_path = ?", [$id, $oldThumb]);
             $pdo->commit();
             foreach ($toDelete as $fp) delete_image_file($fp);
             if ($oldThumb && $oldThumb !== $thumb) delete_image_file($oldThumb);
@@ -104,6 +115,8 @@ require __DIR__ . '/../includes/admin_header.php';
     <div class="mb-3"><label class="form-label fw-semibold" for="content">Nội dung *</label>
       <textarea class="form-control" id="content" name="content" rows="16" required><?= e($data['content']) ?></textarea>
       <div id="content-paste-status" class="form-text" role="status">Bạn có thể dán ảnh đã sao chép; ảnh sẽ được chèn tại vị trí con trỏ.</div>
+      <div class="mt-2"><button class="btn btn-sm btn-outline-secondary" type="button" id="content-image-button">Chọn ảnh để chèn</button>
+        <input class="d-none" type="file" id="content-image-file" accept="image/jpeg,image/png,image/gif,image/webp"></div>
       <div class="form-text">Định dạng: dòng bắt đầu bằng <code>## </code> là tiêu đề mục; dòng bắt đầu bằng <code>- </code> là gạch đầu dòng; để trống một dòng để xuống đoạn mới.</div></div>
     <div class="mb-0"><label class="form-label fw-semibold" for="source">Nguồn tham khảo</label>
       <input class="form-control" id="source" name="source" maxlength="255" value="<?= e($data['source']) ?>" placeholder="Tên tài liệu, cơ quan, năm"></div>
@@ -142,8 +155,16 @@ require __DIR__ . '/../includes/admin_header.php';
 (() => {
   const editor = document.getElementById('content');
   const status = document.getElementById('content-paste-status');
+  const imageButton = document.getElementById('content-image-button');
+  const imageInput = document.getElementById('content-image-file');
   const csrf = document.querySelector('input[name="csrf"]').value;
   let pendingUploads = 0;
+
+  imageButton.addEventListener('click', () => imageInput.click());
+  imageInput.addEventListener('change', () => {
+    if (imageInput.files[0]) uploadAndInsertImage(imageInput.files[0]);
+    imageInput.value = '';
+  });
 
   editor.form.addEventListener('submit', (event) => {
     if (pendingUploads > 0) {
@@ -153,20 +174,26 @@ require __DIR__ . '/../includes/admin_header.php';
   });
 
   editor.addEventListener('paste', async (event) => {
-    const items = event.clipboardData && event.clipboardData.items;
-    if (!items) return;
-
-    const image = Array.from(items)
-      .find((item) => item.type.startsWith('image/'));
-    if (!image) return;
-
-    event.preventDefault();
-    const file = image.getAsFile();
-    if (!file) {
-      status.textContent = 'Không đọc được ảnh trong clipboard.';
+    const clipboard = event.clipboardData;
+    if (!clipboard) return;
+    const file = Array.from(clipboard.files || []).find((item) => item.type.startsWith('image/'))
+      || Array.from(clipboard.items || []).find((item) => item.type.startsWith('image/'))?.getAsFile();
+    if (file) {
+      event.preventDefault();
+      uploadAndInsertImage(file);
       return;
     }
+    const localImagePath = /^(?:file:\/\/\/|\/|[a-z]:[\\/]).+\.(?:jpe?g|png|gif|webp)(?:[?#].*)?$/i;
+    const pastedText = [clipboard.getData('text/plain'), clipboard.getData('text/uri-list')]
+      .map((text) => text.trim())
+      .find((text) => localImagePath.test(text));
+    if (pastedText) {
+      event.preventDefault();
+      status.textContent = 'Clipboard chỉ chứa đường dẫn, không có dữ liệu ảnh. Hãy chọn ảnh bằng nút bên dưới.';
+    }
+  });
 
+  async function uploadAndInsertImage(file) {
     const marker = `[[uploading:${Date.now()}-${Math.random().toString(16).slice(2)}]]`;
     const start = editor.selectionStart;
     const end = editor.selectionEnd;
@@ -196,7 +223,7 @@ require __DIR__ . '/../includes/admin_header.php';
     } finally {
       pendingUploads--;
     }
-  });
+  }
 })();
 </script>
 <?php require __DIR__ . '/../includes/admin_footer.php'; ?>

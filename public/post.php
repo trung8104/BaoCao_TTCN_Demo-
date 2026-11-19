@@ -26,12 +26,6 @@ require __DIR__ . '/../includes/header.php';
     <?php if ($post['summary']): ?><p class="lead"><?= e($post['summary']) ?></p><?php endif; ?>
     <div class="article-content"><?= render_content($post['content']) ?></div>
     <?php if ($images): ?>
-      <h2 class="h5 mt-4">Hình ảnh</h2>
-      <div class="row g-2 gallery">
-        <?php foreach ($images as $im): ?>
-          <div class="col-6 col-md-4"><a href="<?= e(upload_url($im['file_path'])) ?>" target="_blank"><img src="<?= e(upload_url($im['file_path'])) ?>" alt="<?= e($im['alt_text'] ?: $post['title']) ?>" loading="lazy"></a></div>
-        <?php endforeach; ?>
-      </div>
     <?php endif; ?>
     <?php if ($post['source']): ?><p class="small text-muted mt-4 border-top pt-3"><strong>Nguồn tham khảo:</strong> <?= e($post['source']) ?></p><?php endif; ?>
   </article>

@@ -153,7 +153,10 @@ require __DIR__ . '/../includes/admin_header.php';
   });
 
   editor.addEventListener('paste', async (event) => {
-    const image = Array.from(event.clipboardData.items)
+    const items = event.clipboardData && event.clipboardData.items;
+    if (!items) return;
+
+    const image = Array.from(items)
       .find((item) => item.type.startsWith('image/'));
     if (!image) return;
 

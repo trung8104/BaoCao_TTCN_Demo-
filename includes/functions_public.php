@@ -15,10 +15,24 @@ function get_stages() {
               GROUP BY s.id ORDER BY s.sort_order, s.name")->fetchAll();
 }
 function get_symptoms() {
-    return q("SELECT * FROM symptoms ORDER BY FIELD(body_part,'leaf','stem','flower','fruit','root','whole_plant'), name")->fetchAll();
+    $rows = q("SELECT s.id, s.name, s.description,
+                      COALESCE(GROUP_CONCAT(DISTINCT sb.body_part ORDER BY FIELD(sb.body_part,'leaf','stem','flower','fruit','root','whole_plant') SEPARATOR ','), s.body_part) AS body_parts,
+                      COALESCE(MIN(FIELD(sb.body_part,'leaf','stem','flower','fruit','root','whole_plant')),
+                               FIELD(s.body_part,'leaf','stem','flower','fruit','root','whole_plant')) AS part_order
+               FROM symptoms s LEFT JOIN symptom_body_parts sb ON sb.symptom_id = s.id
+               GROUP BY s.id
+               ORDER BY part_order, s.name")->fetchAll();
+    foreach ($rows as &$row) {
+        $row['body_parts'] = explode(',', $row['body_parts']);
+        $row['body_part'] = $row['body_parts'][0];
+    }
+    unset($row);
+    return $rows;
 }
 function body_part_label($k) {
-    return ['leaf'=>'Lá','stem'=>'Thân','flower'=>'Hoa','fruit'=>'Quả','root'=>'Rễ','whole_plant'=>'Toàn cây'][$k] ?? $k;
+    $labels = ['leaf'=>'Lá','stem'=>'Thân','flower'=>'Hoa','fruit'=>'Quả','root'=>'Rễ','whole_plant'=>'Toàn cây'];
+    $parts = is_array($k) ? $k : explode(',', (string)$k);
+    return implode(', ', array_map(fn($part) => $labels[$part] ?? $part, $parts));
 }
 
 // $f: q (từ khóa), category (id), stage (id). Trả về [danh sách, tổng số]
@@ -89,7 +103,11 @@ function search_pests($f) {
 }
 function get_pest_by_slug($slug) { return q("SELECT * FROM pests WHERE slug = ?", [$slug])->fetch(); }
 function get_pest_symptoms($pestId) {
-    return q("SELECT s.* FROM symptoms s JOIN pest_symptoms ps ON ps.symptom_id = s.id WHERE ps.pest_id = ? ORDER BY s.name", [$pestId])->fetchAll();
+    return q("SELECT s.id, s.name, s.description,
+                     COALESCE(GROUP_CONCAT(DISTINCT sb.body_part ORDER BY FIELD(sb.body_part,'leaf','stem','flower','fruit','root','whole_plant') SEPARATOR ','), s.body_part) AS body_part
+              FROM symptoms s JOIN pest_symptoms ps ON ps.symptom_id = s.id
+              LEFT JOIN symptom_body_parts sb ON sb.symptom_id = s.id
+              WHERE ps.pest_id = ? GROUP BY s.id ORDER BY s.name", [$pestId])->fetchAll();
 }
 function get_pest_images($pestId) { return q("SELECT * FROM images WHERE pest_id = ? ORDER BY id", [$pestId])->fetchAll(); }
 function pest_type_label($t) { return $t === 'pest' ? 'Sâu hại' : 'Bệnh'; }

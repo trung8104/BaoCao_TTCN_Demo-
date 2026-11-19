@@ -1,113 +1,139 @@
-// =====================================================================
-// assets/js/calendar.js – trang LỊCH CANH TÁC (public/calendar.php)
-//
-// Người dùng có thể tạo NHIỀU kế hoạch (mỗi luống / chậu một kế hoạch),
-// chọn kế hoạch để xem, sửa và xóa (có hộp thoại xác nhận).
-// Dữ liệu lưu trong localStorage của trình duyệt (không gửi lên máy chủ).
-//
-// File gồm 6 phần:
-//   1. Dữ liệu các mốc chăm sóc     4. Trạng thái và giao diện (render)
-//   2. Hàm hỗ trợ (ngày, tạo thẻ)   5. Xử lý thao tác của người dùng
-//   3. Lưu trữ (localStorage)        6. Khởi động
-// CSS của trang: mục "9. TRANG LỊCH CANH TÁC" trong assets/css/style.css
-// =====================================================================
+/*
+ Người dùng có thể tạo NHIỀU kế hoạch (mỗi luống / chậu một kế hoạch),
+ chọn kế hoạch để xem, sửa và xóa (có hộp thoại xác nhận).
+ Dữ liệu lưu trong localStorage của trình duyệt (không gửi lên máy chủ).
+
+ File gồm 6 phần:
+   1. Dữ liệu các mốc chăm sóc      4. Trạng thái và giao diện (render...)
+   2. Hàm hỗ trợ (ngày, tạo thẻ)    5. Xử lý thao tác của người dùng
+   3. Lưu trữ (localStorage)         6. Khởi động
+ CSS của trang: mục "9. TRANG LỊCH CANH TÁC" trong assets/css/style.css
+*/
+
 (function () {
     "use strict";
+/*
+1. DỮ LIỆU: các mốc chăm sóc
 
-    // ================================================================
-    // 1. DỮ LIỆU: các mốc chăm sóc
-    //    day   = số ngày kể từ ngày gieo hạt
-    //    title = tên công việc          note = ghi chú hướng dẫn
-    //    group = nhóm giống áp dụng:
-    //            "all"           mọi giống
-    //            "determinate"   giống hữu hạn (cây thấp)
-    //            "indeterminate" giống vô hạn (cần giàn cao)
-    //    Thêm mốc mới: thêm một dòng vào đây (chương trình tự sắp xếp theo day).
-    //    LƯU Ý: trong CÙNG một nhóm giống, mỗi `day` chỉ nên xuất hiện MỘT lần,
-    //    vì `day` được dùng để nhớ công việc nào đã hoàn thành.
-    // ================================================================
-    const MILESTONES = [
-        { day: 0, group: "all", title: "Gieo hạt", note: "Gieo vào khay hoặc bầu, giá thể tơi xốp, giữ ẩm nhẹ." },
-        { day: 7, group: "all", title: "Hạt nảy mầm, cây con lên đều", note: "Để nơi nhiều sáng, tưới nhẹ, tránh úng." },
-        { day: 14, group: "all", title: "Cây con có lá thật", note: "Theo dõi sâu bệnh, tỉa bớt nếu gieo dày." },
-        { day: 25, group: "all", title: "Chuẩn bị đem cây ra trồng", note: "Cây con khỏe, khoảng 4–6 lá thật. Cho cây làm quen nắng 2–3 ngày trước khi trồng." },
-        { day: 28, group: "all", title: "Trồng cây ra vườn", note: "Trồng buổi chiều mát, tưới đẫm sau trồng." },
+Chia thành 3 danh sách:
+common         mốc áp dụng cho MỌI giống
+determinate    mốc riêng của giống hữu hạn (cây thấp)
+indeterminate  mốc riêng của giống vô hạn (cần giàn cao)
+Lịch của một kế hoạch = common + danh sách của giống được chọn, rồi xếp theo ngày.
 
-        { day: 38, group: "indeterminate", title: "Làm giàn cao, buộc dây, bắt đầu tỉa chồi nách", note: "Tỉa chồi nách thường xuyên, giữ 1–2 thân chính." },
-        { day: 40, group: "determinate", title: "Làm giàn / cắm cọc, bón thúc lần 1", note: "Cắm cọc để cây không đổ, bón thúc theo hướng dẫn phân bón." },
-        { day: 50, group: "indeterminate", title: "Ra hoa, bón thúc lần 1", note: "Giữ ẩm đều, hỗ trợ thụ phấn nếu trồng trong nhà lưới." },
-        { day: 55, group: "determinate", title: "Ra hoa rộ", note: "Giữ ẩm đều, tránh tưới thất thường để hạn chế rụng hoa, nứt quả." },
-        { day: 65, group: "indeterminate", title: "Đậu quả, tỉa lá già gốc", note: "Tỉa lá già giúp thông thoáng, giảm bệnh." },
-        { day: 70, group: "determinate", title: "Đậu quả, bón thúc lần 2", note: "Chú ý sâu đục quả và các bệnh trên quả." },
-        { day: 90, group: "determinate", title: "Bắt đầu thu hoạch", note: "Hái khi quả chuyển màu, hái lúc trời mát." },
-        { day: 90, group: "indeterminate", title: "Bắt đầu thu hoạch", note: "Thu hoạch kéo dài nhiều đợt." },
-        { day: 110, group: "determinate", title: "Thu hoạch rộ, kết thúc vụ", note: "Thu gom tàn dư cây để hạn chế mầm bệnh cho vụ sau." },
-        { day: 130, group: "indeterminate", title: "Thu hoạch rộ, đánh giá kết thúc vụ", note: "Cắt ngọn khi cây quá cao, thu gom tàn dư cuối vụ." },
-    ];
+Mỗi mốc gồm:
+day   = số ngày kể từ ngày gieo hạt
+title = tên công việc
+note  = ghi chú hướng dẫn
+
+Thêm mốc mới: thêm một dòng vào đúng danh sách (thứ tự dòng không quan trọng).
+LƯU Ý: trong lịch của MỘT giống (common + danh sách riêng), mỗi `day` chỉ nên
+xuất hiện MỘT lần, vì `day` được dùng để nhớ công việc nào đã hoàn thành.
+(Nếu lỡ trùng, mở Console bằng phím F12 sẽ thấy cảnh báo.)
+
+*/
+    const MILESTONES = {
+        common: [
+            { day: 0, title: "Gieo hạt", note: "Gieo vào khay hoặc bầu, giá thể tơi xốp, giữ ẩm nhẹ." },
+            { day: 7, title: "Hạt nảy mầm, cây con lên đều", note: "Để nơi nhiều sáng, tưới nhẹ, tránh úng." },
+            { day: 14, title: "Cây con có lá thật", note: "Theo dõi sâu bệnh, tỉa bớt nếu gieo dày." },
+            { day: 25, title: "Chuẩn bị đem cây ra trồng", note: "Cây con khỏe, khoảng 4–6 lá thật. Cho cây làm quen nắng 2–3 ngày trước khi trồng." },
+            { day: 28, title: "Trồng cây ra vườn", note: "Trồng buổi chiều mát, tưới đẫm sau trồng." },
+        ],
+        determinate: [
+            { day: 40, title: "Làm giàn / cắm cọc, bón thúc lần 1", note: "Cắm cọc để cây không đổ, bón thúc theo hướng dẫn phân bón." },
+            { day: 55, title: "Ra hoa rộ", note: "Giữ ẩm đều, tránh tưới thất thường để hạn chế rụng hoa, nứt quả." },
+            { day: 70, title: "Đậu quả, bón thúc lần 2", note: "Chú ý sâu đục quả và các bệnh trên quả." },
+            { day: 90, title: "Bắt đầu thu hoạch", note: "Hái khi quả chuyển màu, hái lúc trời mát." },
+            { day: 110, title: "Thu hoạch rộ, kết thúc vụ", note: "Thu gom tàn dư cây để hạn chế mầm bệnh cho vụ sau." },
+        ],
+        indeterminate: [
+            { day: 38, title: "Làm giàn cao, buộc dây, bắt đầu tỉa chồi nách", note: "Tỉa chồi nách thường xuyên, giữ 1–2 thân chính." },
+            { day: 50, title: "Ra hoa, bón thúc lần 1", note: "Giữ ẩm đều, hỗ trợ thụ phấn nếu trồng trong nhà lưới." },
+            { day: 65, title: "Đậu quả, tỉa lá già gốc", note: "Tỉa lá già giúp thông thoáng, giảm bệnh." },
+            { day: 90, title: "Bắt đầu thu hoạch", note: "Thu hoạch kéo dài nhiều đợt." },
+            { day: 130, title: "Thu hoạch rộ, đánh giá kết thúc vụ", note: "Cắt ngọn khi cây quá cao, thu gom tàn dư cuối vụ." },
+        ],
+    };
 
     const VARIETIES = ["determinate", "indeterminate"]; // các giá trị hợp lệ của ô "Nhóm giống"
-    const DEFAULT_NAME = "Lịch cà chua"; // tên dùng khi người dùng để trống ô tên
+    const DEFAULT_PLAN_NAME = "Lịch cà chua"; // tên dùng khi người dùng để trống ô tên
     const MAX_PLANS = 20; // số kế hoạch tối đa (tránh danh sách quá dài)
-    const STORE_KEY = "tomatoGuideCalendars"; // khóa localStorage: dữ liệu mới (nhiều kế hoạch)
-    const OLD_KEY = "tomatoGuideCropCalendar"; // khóa localStorage: dữ liệu cũ (chỉ 1 kế hoạch)
-    const DAY_NAMES = ["Chủ nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
+    const STORAGE_KEY = "tomatoGuideCalendars"; // tên ô nhớ trong localStorage: dữ liệu mới (nhiều kế hoạch)
+    const OLD_STORAGE_KEY = "tomatoGuideCropCalendar"; // tên ô nhớ của bản cũ (chỉ 1 kế hoạch)
+    const WEEKDAY_NAMES = ["Chủ nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"]; // theo thứ tự getDay(): 0 = Chủ nhật
 
     // ================================================================
     // 2. HÀM HỖ TRỢ
     // ================================================================
 
-    // Tạo một thẻ HTML: el("span", "tên-class", "chữ bên trong").
+    // Tạo một thẻ HTML mới. Ví dụ: makeElement("span", "plan-chip__name", "Ban công")
+    // tạo <span class="plan-chip__name">Ban công</span>.
     // Dùng textContent nên chữ người dùng nhập (tên kế hoạch...) không thể chèn mã HTML độc hại.
-    function el(tag, className, text) {
-        const node = document.createElement(tag);
-        if (className) node.className = className;
-        if (text !== undefined) node.textContent = text;
-        return node;
+    function makeElement(tagName, className, text) {
+        const element = document.createElement(tagName);
+        if (className) element.className = className;
+        if (text !== undefined) element.textContent = text;
+        return element;
     }
 
-    function pad(n) {
-        return String(n).padStart(2, "0"); // 5 -> "05"
+    // Thêm số 0 phía trước cho đủ 2 chữ số: 5 -> "05", 12 -> "12"
+    function twoDigits(number) {
+        return String(number).padStart(2, "0");
     }
 
-    // Date -> "2026-11-14" (đúng định dạng của <input type="date">)
-    function toIso(d) {
-        return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+    // Đổi ngày (Date) thành chữ "2026-11-14" – đúng định dạng mà ô <input type="date"> dùng
+    function formatDateForInput(date) {
+        return date.getFullYear() + "-" + twoDigits(date.getMonth() + 1) + "-" + twoDigits(date.getDate());
     }
 
-    // "2026-11-14" -> Date. Sai định dạng hoặc ngày không có thật (ví dụ 2026-02-31) -> null
-    function parseIso(text) {
-        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text || "");
-        if (!m) return null;
-        const year = +m[1];
-        const month = +m[2] - 1; // tháng trong JavaScript đếm từ 0
-        const day = +m[3];
-        const d = new Date(year, month, day);
-        const valid = d.getFullYear() === year && d.getMonth() === month && d.getDate() === day;
-        return valid ? d : null;
+    // Ngược lại: đổi chữ "2026-11-14" thành ngày (Date).
+    // Chữ sai định dạng hoặc ngày không có thật (ví dụ 2026-02-31) -> trả về null
+    function parseInputDate(text) {
+        const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text || ""); // tách thành năm, tháng, ngày
+        if (!parts) return null;
+        const year = Number(parts[1]);
+        const monthIndex = Number(parts[2]) - 1; // tháng trong JavaScript đếm từ 0 (tháng 1 = 0)
+        const dayOfMonth = Number(parts[3]);
+        const date = new Date(year, monthIndex, dayOfMonth);
+        // Nếu ngày không có thật thì JavaScript tự "nhảy" sang tháng sau, nên kiểm tra lại cho khớp
+        const isRealDate = date.getFullYear() === year && date.getMonth() === monthIndex && date.getDate() === dayOfMonth;
+        return isRealDate ? date : null;
     }
 
-    // Date -> "Thứ 7, 14/11/2026"
-    function formatLong(d) {
-        return DAY_NAMES[d.getDay()] + ", " + pad(d.getDate()) + "/" + pad(d.getMonth() + 1) + "/" + d.getFullYear();
+    // Đổi ngày thành chữ có thứ: "Thứ 7, 14/11/2026"
+    function formatDateWithWeekday(date) {
+        return WEEKDAY_NAMES[date.getDay()] + ", " + twoDigits(date.getDate()) + "/" + twoDigits(date.getMonth() + 1) + "/" + date.getFullYear();
     }
 
-    // "2026-11-14" -> "14/11/2026"
-    function formatShort(iso) {
-        const d = parseIso(iso);
-        return d ? pad(d.getDate()) + "/" + pad(d.getMonth() + 1) + "/" + d.getFullYear() : "";
+    // Đổi chữ "2026-11-14" thành "14/11/2026" (để hiện cho người Việt đọc)
+    function formatDayMonthYear(inputText) {
+        const date = parseInputDate(inputText);
+        return date ? twoDigits(date.getDate()) + "/" + twoDigits(date.getMonth() + 1) + "/" + date.getFullYear() : "";
     }
 
-    // Danh sách mốc áp dụng cho một nhóm giống, xếp theo ngày tăng dần
-    function milestonesFor(variety) {
-        return MILESTONES.filter(function (m) {
-            return m.group === "all" || m.group === variety;
-        }).sort(function (a, b) {
-            return a.day - b.day;
+    // Lấy danh sách mốc của một nhóm giống: các mốc chung + các mốc riêng, xếp theo ngày tăng dần
+    function getMilestonesFor(variety) {
+        return MILESTONES.common.concat(MILESTONES[variety] || []).sort(function (first, second) {
+            return first.day - second.day;
         });
     }
 
-    // Mã định danh ngẫu nhiên cho mỗi kế hoạch, ví dụ "pm3k9x2a7f"
-    function newId() {
+    // Báo trong Console (phím F12) nếu có hai mốc trùng `day` trong cùng một giống
+    function warnAboutDuplicateDays() {
+        VARIETIES.forEach(function (variety) {
+            const seenDays = {};
+            getMilestonesFor(variety).forEach(function (milestone) {
+                if (seenDays[milestone.day]) {
+                    console.warn("calendar.js: giống " + variety + " có hai mốc cùng day = " + milestone.day + ". Hãy đổi một trong hai mốc.");
+                }
+                seenDays[milestone.day] = true;
+            });
+        });
+    }
+
+    // Tạo mã định danh ngẫu nhiên cho mỗi kế hoạch, ví dụ "pm3k9x2a7f"
+    function createPlanId() {
         return "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     }
 
@@ -130,102 +156,108 @@
     // ================================================================
 
     // Kiểm tra trình duyệt có cho phép lưu không (chế độ riêng tư có thể chặn)
-    const storageWorks = (function () {
+    const canUseLocalStorage = (function () {
         try {
             localStorage.setItem("__test__", "1");
             localStorage.removeItem("__test__");
             return true;
-        } catch (e) {
+        } catch (error) {
             return false;
         }
     })();
 
-    function emptyStore() {
+    // Dữ liệu trống: chưa có kế hoạch nào
+    function createEmptyData() {
         return { version: 2, activeId: null, plans: [] };
     }
 
-    // Làm sạch dữ liệu của một kế hoạch đọc từ localStorage; dữ liệu hỏng -> null (bỏ qua)
-    function cleanPlan(raw) {
-        if (!raw || typeof raw !== "object" || !parseIso(raw.date)) return null;
+    // Kiểm tra và làm sạch một kế hoạch đọc từ localStorage.
+    // Trả về kế hoạch hợp lệ, hoặc null nếu dữ liệu hỏng (khi đó kế hoạch bị bỏ qua).
+    function validatePlan(savedPlan) {
+        if (!savedPlan || typeof savedPlan !== "object" || !parseInputDate(savedPlan.date)) return null;
         const done = {};
-        Object.keys(raw.done || {}).forEach(function (key) {
-            if (raw.done[key] === true && /^\d+$/.test(key)) done[key] = true;
+        Object.keys(savedPlan.done || {}).forEach(function (day) {
+            if (savedPlan.done[day] === true && /^\d+$/.test(day)) done[day] = true;
         });
         return {
-            id: typeof raw.id === "string" && raw.id ? raw.id : newId(),
-            name: String(raw.name || DEFAULT_NAME).slice(0, 50),
-            date: raw.date,
-            variety: VARIETIES.indexOf(raw.variety) >= 0 ? raw.variety : "determinate",
+            id: typeof savedPlan.id === "string" && savedPlan.id ? savedPlan.id : createPlanId(),
+            name: String(savedPlan.name || DEFAULT_PLAN_NAME).slice(0, 50),
+            date: savedPlan.date,
+            variety: VARIETIES.indexOf(savedPlan.variety) >= 0 ? savedPlan.variety : "determinate",
             done: done,
-            createdAt: Number(raw.createdAt) || Date.now(),
+            createdAt: Number(savedPlan.createdAt) || Date.now(),
         };
     }
 
     // Bản cũ chỉ lưu MỘT kế hoạch và đánh dấu việc đã làm theo số thứ tự (0, 1, 2...).
-    // Bản mới đánh dấu theo `day` nên chuyển đổi: số thứ tự -> day của mốc ở vị trí đó.
-    function migrateOldPlan() {
-        let old = null;
+    // Bản mới đánh dấu theo `day`, nên hàm này đổi: số thứ tự -> `day` của mốc ở vị trí đó.
+    // Trả về kế hoạch đã chuyển đổi, hoặc null nếu không có dữ liệu cũ.
+    function importOldFormatPlan() {
+        let oldPlan = null;
         try {
-            old = JSON.parse(localStorage.getItem(OLD_KEY) || "null");
-        } catch (e) {
+            oldPlan = JSON.parse(localStorage.getItem(OLD_STORAGE_KEY) || "null");
+        } catch (error) {
             return null;
         }
-        if (!old || !parseIso(old.date)) return null;
-        const variety = VARIETIES.indexOf(old.variety) >= 0 ? old.variety : "determinate";
-        const items = milestonesFor(variety); // thứ tự này giống hệt thứ tự bản cũ đã dùng để đánh số
+        if (!oldPlan || !parseInputDate(oldPlan.date)) return null;
+        const variety = VARIETIES.indexOf(oldPlan.variety) >= 0 ? oldPlan.variety : "determinate";
+        const milestones = getMilestonesFor(variety); // thứ tự này giống hệt thứ tự bản cũ đã dùng để đánh số
         const done = {};
-        Object.keys(old.done || {}).forEach(function (index) {
-            if (old.done[index] && items[+index]) done[items[+index].day] = true;
+        Object.keys(oldPlan.done || {}).forEach(function (position) {
+            if (oldPlan.done[position] && milestones[Number(position)]) done[milestones[Number(position)].day] = true;
         });
-        return cleanPlan({ name: old.name, date: old.date, variety: variety, done: done });
+        return validatePlan({ name: oldPlan.name, date: oldPlan.date, variety: variety, done: done });
     }
 
-    function loadStore() {
-        const result = emptyStore();
-        if (!storageWorks) return result;
-        let text = null;
+    // Đọc toàn bộ dữ liệu từ localStorage (và chuyển dữ liệu bản cũ sang nếu có)
+    function loadData() {
+        const data = createEmptyData();
+        if (!canUseLocalStorage) return data;
+        let savedText = null;
         try {
-            text = localStorage.getItem(STORE_KEY);
-        } catch (e) {
-            return result;
+            savedText = localStorage.getItem(STORAGE_KEY);
+        } catch (error) {
+            return data;
         }
-        if (text) {
-            let data = null;
+        if (savedText) {
+            let savedData = null;
             try {
-                data = JSON.parse(text);
-            } catch (e) {
-                data = null; // dữ liệu hỏng -> coi như chưa có gì
+                savedData = JSON.parse(savedText);
+            } catch (error) {
+                savedData = null; // dữ liệu hỏng -> coi như chưa có gì
             }
-            const plans = data && Array.isArray(data.plans) ? data.plans : [];
-            plans.forEach(function (raw) {
-                const plan = cleanPlan(raw);
-                if (plan) result.plans.push(plan);
+            const savedPlans = savedData && Array.isArray(savedData.plans) ? savedData.plans : [];
+            savedPlans.forEach(function (savedPlan) {
+                const plan = validatePlan(savedPlan);
+                if (plan) data.plans.push(plan);
             });
-            result.activeId = data ? data.activeId : null;
+            data.activeId = savedData ? savedData.activeId : null;
         } else {
-            const migrated = migrateOldPlan(); // lần đầu dùng bản mới: đưa kế hoạch cũ sang
-            if (migrated) {
-                result.plans.push(migrated);
-                result.activeId = migrated.id;
-                if (writeStore(result)) {
+            const importedPlan = importOldFormatPlan(); // lần đầu dùng bản mới: đưa kế hoạch cũ sang
+            if (importedPlan) {
+                data.plans.push(importedPlan);
+                data.activeId = importedPlan.id;
+                if (writeData(data)) {
                     try {
-                        localStorage.removeItem(OLD_KEY); // đã chuyển xong, xóa dữ liệu cũ
-                    } catch (e) {}
+                        localStorage.removeItem(OLD_STORAGE_KEY); // đã chuyển xong, xóa dữ liệu cũ
+                    } catch (error) {}
                 }
             }
         }
-        const found = result.plans.some(function (p) {
-            return p.id === result.activeId;
+        // Nếu kế hoạch đang chọn không còn tồn tại thì chọn kế hoạch đầu tiên
+        const activeExists = data.plans.some(function (plan) {
+            return plan.id === data.activeId;
         });
-        if (!found) result.activeId = result.plans.length ? result.plans[0].id : null;
-        return result;
+        if (!activeExists) data.activeId = data.plans.length ? data.plans[0].id : null;
+        return data;
     }
 
-    function writeStore(data) {
+    // Ghi dữ liệu vào localStorage. Trả về true nếu ghi được, false nếu bị lỗi.
+    function writeData(data) {
         try {
-            localStorage.setItem(STORE_KEY, JSON.stringify(data));
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
             return true;
-        } catch (e) {
+        } catch (error) {
             return false;
         }
     }
@@ -235,63 +267,66 @@
     // ================================================================
 
     // Các phần tử trong calendar.php (tìm theo id)
-    const form = document.getElementById("planForm");
+    const planForm = document.getElementById("planForm");
     const formTitle = document.getElementById("formTitle");
     const nameInput = document.getElementById("cropName");
     const dateInput = document.getElementById("sowDate");
     const varietySelect = document.getElementById("variety");
     const submitLabel = document.getElementById("calcBtnLabel");
-    const cancelEditBtn = document.getElementById("cancelEdit");
-    const errorBox = document.getElementById("calcError");
-    const statusBox = document.getElementById("calcStatus");
-    const switcher = document.getElementById("planSwitcher");
+    const cancelEditButton = document.getElementById("cancelEdit");
+    const errorMessage = document.getElementById("calcError");
+    const statusMessage = document.getElementById("calcStatus");
+    const planListSection = document.getElementById("planSwitcher");
     const planList = document.getElementById("planList");
-    const progressBox = document.getElementById("calendarProgress");
+    const progressSection = document.getElementById("calendarProgress");
     const planTitle = document.getElementById("planTitle");
-    const completedCount = document.getElementById("completedCount");
-    const totalCount = document.getElementById("totalCount");
-    const editBtn = document.getElementById("editPlan");
-    const deleteBtn = document.getElementById("deletePlan");
-    const emptyBox = document.getElementById("calendarEmpty");
+    const completedCountText = document.getElementById("completedCount");
+    const totalCountText = document.getElementById("totalCount");
+    const editButton = document.getElementById("editPlan");
+    const deleteButton = document.getElementById("deletePlan");
+    const emptyMessage = document.getElementById("calendarEmpty");
     const timeline = document.getElementById("timeline");
-    const note = document.getElementById("calcNote");
-    const dialog = document.getElementById("confirmDialog");
-    const dialogName = document.getElementById("confirmName");
+    const calendarNote = document.getElementById("calcNote");
+    const confirmDialog = document.getElementById("confirmDialog");
+    const confirmPlanName = document.getElementById("confirmName");
 
-    let store = loadStore(); // toàn bộ dữ liệu: danh sách kế hoạch + kế hoạch đang chọn
-    let editingId = null; // id kế hoạch đang được sửa trong form (null = form đang ở chế độ "tạo mới")
-    let pendingDeleteId = null; // id kế hoạch đang chờ người dùng xác nhận xóa
+    let calendarData = loadData(); // toàn bộ dữ liệu: danh sách kế hoạch + kế hoạch đang chọn
+    let editingPlanId = null; // id kế hoạch đang được sửa trong form (null = form đang ở chế độ "tạo mới")
+    let planToDeleteId = null; // id kế hoạch đang chờ người dùng xác nhận xóa
 
+    // Lấy kế hoạch đang được chọn (null nếu chưa có kế hoạch nào)
     function getActivePlan() {
         return (
-            store.plans.find(function (p) {
-                return p.id === store.activeId;
+            calendarData.plans.find(function (plan) {
+                return plan.id === calendarData.activeId;
             }) || null
         );
     }
 
-    // Số công việc đã hoàn thành của một kế hoạch (chỉ đếm các mốc còn nằm trong danh sách)
-    function countDone(plan, items) {
-        return items.filter(function (m) {
-            return plan.done[m.day];
+    // Đếm số công việc đã hoàn thành (chỉ đếm các mốc còn nằm trong danh sách)
+    function countCompletedTasks(plan, milestones) {
+        return milestones.filter(function (milestone) {
+            return plan.done[milestone.day];
         }).length;
     }
 
+    // Hiện / xóa dòng báo lỗi dưới form
     function showError(text) {
-        errorBox.textContent = text || "";
+        errorMessage.textContent = text || "";
     }
 
-    function showStatus(text) {
-        statusBox.textContent = text || ""; // vùng chỉ dành cho trình đọc màn hình
+    // Thông báo chỉ dành cho trình đọc màn hình ("Đã tạo kế hoạch...")
+    function announceStatus(text) {
+        statusMessage.textContent = text || "";
     }
 
     // Ghi dữ liệu; nếu không ghi được thì báo cho người dùng (kế hoạch vẫn dùng được cho đến khi tải lại trang)
-    function save() {
-        if (!storageWorks) {
+    function saveData() {
+        if (!canUseLocalStorage) {
             showError("Trình duyệt đang chặn lưu trữ nên kế hoạch sẽ mất khi tải lại trang.");
             return false;
         }
-        if (!writeStore(store)) {
+        if (!writeData(calendarData)) {
             showError("Không lưu được kế hoạch trên trình duyệt này.");
             return false;
         }
@@ -299,100 +334,101 @@
     }
 
     // Đọc lại dữ liệu mới nhất trước mỗi thao tác (phòng khi bạn mở trang này ở 2 tab)
-    function refresh() {
-        if (storageWorks) store = loadStore();
+    function reloadData() {
+        if (canUseLocalStorage) calendarData = loadData();
     }
 
     // Vẽ danh sách các nút chọn kế hoạch
-    function renderSwitcher() {
+    function renderPlanList() {
         planList.innerHTML = "";
-        switcher.hidden = store.plans.length === 0;
-        store.plans.forEach(function (plan) {
-            const items = milestonesFor(plan.variety);
-            const button = el("button", "plan-chip");
-            button.type = "button";
-            button.dataset.planId = plan.id; // sẽ đọc lại khi người dùng bấm
-            button.setAttribute("aria-pressed", String(plan.id === store.activeId));
-            button.appendChild(el("span", "plan-chip__name", plan.name));
-            button.appendChild(el("span", "plan-chip__meta", "Gieo " + formatShort(plan.date) + " · " + countDone(plan, items) + "/" + items.length + " việc"));
-            const li = document.createElement("li");
-            li.appendChild(button);
-            planList.appendChild(li);
+        planListSection.hidden = calendarData.plans.length === 0;
+        calendarData.plans.forEach(function (plan) {
+            const milestones = getMilestonesFor(plan.variety);
+            const planButton = makeElement("button", "plan-chip");
+            planButton.type = "button";
+            planButton.dataset.planId = plan.id; // sẽ đọc lại khi người dùng bấm
+            planButton.setAttribute("aria-pressed", String(plan.id === calendarData.activeId));
+            planButton.appendChild(makeElement("span", "plan-chip__name", plan.name));
+            planButton.appendChild(makeElement("span", "plan-chip__meta", "Gieo " + formatDayMonthYear(plan.date) + " · " + countCompletedTasks(plan, milestones) + "/" + milestones.length + " việc"));
+            const listItem = document.createElement("li");
+            listItem.appendChild(planButton);
+            planList.appendChild(listItem);
         });
     }
 
     // Cập nhật con số "3 / 10 công việc"
-    function renderCounts(plan, items) {
-        completedCount.textContent = countDone(plan, items);
-        totalCount.textContent = "/ " + items.length + " công việc";
+    function renderProgressCount(plan, milestones) {
+        completedCountText.textContent = countCompletedTasks(plan, milestones);
+        totalCountText.textContent = "/ " + milestones.length + " công việc";
     }
 
     // Vẽ phần tiến độ + danh sách mốc của kế hoạch đang chọn
-    function renderPlan() {
+    function renderSelectedPlan() {
         const plan = getActivePlan();
         timeline.innerHTML = "";
-        progressBox.hidden = !plan;
-        note.hidden = !plan;
-        emptyBox.hidden = !!plan;
+        progressSection.hidden = !plan;
+        calendarNote.hidden = !plan;
+        emptyMessage.hidden = !!plan;
         if (!plan) return;
 
-        const items = milestonesFor(plan.variety);
-        const start = parseIso(plan.date);
+        const milestones = getMilestonesFor(plan.variety);
+        const sowDate = parseInputDate(plan.date);
         planTitle.textContent = plan.name;
-        renderCounts(plan, items);
+        renderProgressCount(plan, milestones);
 
-        items.forEach(function (m) {
-            const date = new Date(start.getTime());
-            date.setDate(date.getDate() + m.day); // ngày gieo + số ngày của mốc
-            const done = plan.done[m.day] === true;
+        milestones.forEach(function (milestone) {
+            const milestoneDate = new Date(sowDate.getTime());
+            milestoneDate.setDate(milestoneDate.getDate() + milestone.day); // ngày gieo + số ngày của mốc
+            const isDone = plan.done[milestone.day] === true;
 
-            const li = el("li", done ? "is-complete" : "");
-            const label = el("label", "task-check");
-            const box = document.createElement("input");
-            box.type = "checkbox";
-            box.checked = done;
-            box.dataset.day = m.day; // sẽ đọc lại khi người dùng tick
-            const tick = el("span");
-            tick.setAttribute("aria-hidden", "true"); // ô vuông trang trí, trình đọc màn hình bỏ qua
-            label.appendChild(box);
-            label.appendChild(tick);
-            label.appendChild(el("span", "visually-hidden", "Đánh dấu " + m.title + " đã hoàn thành"));
+            const listItem = makeElement("li", isDone ? "is-complete" : "");
+            const label = makeElement("label", "task-check");
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = isDone;
+            checkbox.dataset.day = milestone.day; // sẽ đọc lại khi người dùng tick
+            const tickBox = makeElement("span");
+            tickBox.setAttribute("aria-hidden", "true"); // ô vuông trang trí, trình đọc màn hình bỏ qua
+            label.appendChild(checkbox);
+            label.appendChild(tickBox);
+            label.appendChild(makeElement("span", "visually-hidden", "Đánh dấu " + milestone.title + " đã hoàn thành"));
 
-            const content = el("div", "timeline-content");
-            const dateLine = el("div", "date", formatLong(date) + " ");
-            dateLine.appendChild(el("span", "text-muted fw-normal", "(ngày thứ " + m.day + ")"));
+            const content = makeElement("div", "timeline-content");
+            const dateLine = makeElement("div", "date", formatDateWithWeekday(milestoneDate) + " ");
+            dateLine.appendChild(makeElement("span", "text-muted fw-normal", "(ngày thứ " + milestone.day + ")"));
             content.appendChild(dateLine);
-            content.appendChild(el("div", "fw-semibold task-title", m.title));
-            content.appendChild(el("div", "text-muted small", m.note));
+            content.appendChild(makeElement("div", "fw-semibold task-title", milestone.title));
+            content.appendChild(makeElement("div", "text-muted small", milestone.note));
 
-            li.appendChild(label);
-            li.appendChild(content);
-            timeline.appendChild(li);
+            listItem.appendChild(label);
+            listItem.appendChild(content);
+            timeline.appendChild(listItem);
         });
     }
 
-    function render() {
-        renderSwitcher();
-        renderPlan();
+    // Vẽ lại toàn bộ phần động của trang
+    function renderAll() {
+        renderPlanList();
+        renderSelectedPlan();
     }
 
     // Đặt form về chế độ "Tạo kế hoạch mới" với giá trị mặc định
-    function resetForm() {
-        editingId = null;
+    function resetFormToCreateMode() {
+        editingPlanId = null;
         formTitle.textContent = "Tạo kế hoạch mới";
         submitLabel.textContent = "Tạo lịch";
-        cancelEditBtn.hidden = true;
+        cancelEditButton.hidden = true;
         nameInput.value = "";
-        dateInput.value = toIso(new Date()); // mặc định: hôm nay
+        dateInput.value = formatDateForInput(new Date()); // mặc định: hôm nay
         varietySelect.value = "determinate";
     }
 
     // Đưa kế hoạch đang chọn vào form để sửa
-    function startEditing(plan) {
-        editingId = plan.id;
+    function fillFormForEditing(plan) {
+        editingPlanId = plan.id;
         formTitle.textContent = "Chỉnh sửa kế hoạch";
         submitLabel.textContent = "Lưu thay đổi";
-        cancelEditBtn.hidden = false;
+        cancelEditButton.hidden = false;
         nameInput.value = plan.name;
         dateInput.value = plan.date;
         varietySelect.value = plan.variety;
@@ -405,149 +441,152 @@
     // ================================================================
 
     // --- Bấm nút "Tạo lịch" / "Lưu thay đổi" (hoặc nhấn Enter trong form) ---
-    form.addEventListener("submit", function (event) {
+    planForm.addEventListener("submit", function (event) {
         event.preventDefault(); // không cho trình duyệt tải lại trang
-        refresh();
+        reloadData();
         showError("");
-        showStatus("");
+        announceStatus("");
 
-        const date = dateInput.value;
-        if (!date) return fail("Hãy chọn ngày gieo hạt.");
-        if (!parseIso(date)) return fail("Ngày gieo hạt chưa hợp lệ.");
+        const dateText = dateInput.value;
+        if (!dateText) return stopWithError("Hãy chọn ngày gieo hạt.");
+        if (!parseInputDate(dateText)) return stopWithError("Ngày gieo hạt chưa hợp lệ.");
         const variety = VARIETIES.indexOf(varietySelect.value) >= 0 ? varietySelect.value : "determinate";
         const typedName = nameInput.value.trim().slice(0, 50);
 
-        if (editingId) {
-            const plan = store.plans.find(function (p) {
-                return p.id === editingId;
+        if (editingPlanId) {
+            const plan = calendarData.plans.find(function (item) {
+                return item.id === editingPlanId;
             });
             if (!plan) {
-                resetForm(); // kế hoạch đã bị xóa ở tab khác
-                render();
+                resetFormToCreateMode(); // kế hoạch đã bị xóa ở tab khác
+                renderAll();
                 return;
             }
             plan.name = typedName || plan.name; // để trống tên thì giữ tên cũ
-            plan.date = date;
+            plan.date = dateText;
             plan.variety = variety;
-            showStatus("Đã lưu thay đổi cho kế hoạch " + plan.name + ".");
+            announceStatus("Đã lưu thay đổi cho kế hoạch " + plan.name + ".");
         } else {
-            if (store.plans.length >= MAX_PLANS) return fail("Tối đa " + MAX_PLANS + " kế hoạch. Hãy xóa bớt kế hoạch cũ.");
-            const fallback = DEFAULT_NAME + (store.plans.length ? " " + (store.plans.length + 1) : "");
-            const plan = { id: newId(), name: typedName || fallback, date: date, variety: variety, done: {}, createdAt: Date.now() };
-            store.plans.push(plan);
-            store.activeId = plan.id; // chọn luôn kế hoạch vừa tạo
-            showStatus("Đã tạo kế hoạch " + plan.name + ".");
+            if (calendarData.plans.length >= MAX_PLANS) return stopWithError("Tối đa " + MAX_PLANS + " kế hoạch. Hãy xóa bớt kế hoạch cũ.");
+            const fallbackName = DEFAULT_PLAN_NAME + (calendarData.plans.length ? " " + (calendarData.plans.length + 1) : "");
+            const newPlan = { id: createPlanId(), name: typedName || fallbackName, date: dateText, variety: variety, done: {}, createdAt: Date.now() };
+            calendarData.plans.push(newPlan);
+            calendarData.activeId = newPlan.id; // chọn luôn kế hoạch vừa tạo
+            announceStatus("Đã tạo kế hoạch " + newPlan.name + ".");
         }
-        save();
-        resetForm();
-        render();
+        saveData();
+        resetFormToCreateMode();
+        renderAll();
 
-        function fail(message) {
+        // Hiện lỗi và đưa con trỏ về ô ngày để người dùng sửa
+        function stopWithError(message) {
             showError(message);
             dateInput.focus();
         }
     });
 
-    cancelEditBtn.addEventListener("click", function () {
-        resetForm();
+    cancelEditButton.addEventListener("click", function () {
+        resetFormToCreateMode();
         showError("");
     });
 
     // --- Bấm vào một kế hoạch trong danh sách để xem ---
     planList.addEventListener("click", function (event) {
-        const button = event.target.closest("[data-plan-id]");
-        if (!button) return;
-        refresh();
-        store.activeId = button.dataset.planId;
-        if (!getActivePlan()) store.activeId = store.plans.length ? store.plans[0].id : null; // kế hoạch vừa bị xóa ở tab khác
-        save();
-        if (editingId) resetForm(); // đổi kế hoạch thì thoát chế độ sửa
+        const planButton = event.target.closest("[data-plan-id]");
+        if (!planButton) return;
+        reloadData();
+        calendarData.activeId = planButton.dataset.planId;
+        if (!getActivePlan()) calendarData.activeId = calendarData.plans.length ? calendarData.plans[0].id : null; // kế hoạch vừa bị xóa ở tab khác
+        saveData();
+        if (editingPlanId) resetFormToCreateMode(); // đổi kế hoạch thì thoát chế độ sửa
         showError("");
-        render();
-        const pressed = planList.querySelector('[aria-pressed="true"]');
-        if (pressed) pressed.focus(); // giữ con trỏ bàn phím trên nút vừa chọn
+        renderAll();
+        const selectedButton = planList.querySelector('[aria-pressed="true"]');
+        if (selectedButton) selectedButton.focus(); // giữ con trỏ bàn phím trên nút vừa chọn
     });
 
     // --- Tick / bỏ tick một công việc ---
     timeline.addEventListener("change", function (event) {
-        const box = event.target;
-        if (!box.matches("input[data-day]")) return;
-        refresh();
+        const checkbox = event.target;
+        if (!checkbox.matches("input[data-day]")) return;
+        reloadData();
         const plan = getActivePlan();
         if (!plan) return;
-        if (box.checked) plan.done[box.dataset.day] = true;
-        else delete plan.done[box.dataset.day];
-        save();
+        if (checkbox.checked) plan.done[checkbox.dataset.day] = true;
+        else delete plan.done[checkbox.dataset.day];
+        saveData();
         // Chỉ cập nhật đúng chỗ cần thiết (không vẽ lại cả danh sách) để con trỏ bàn phím không bị mất
-        box.closest("li").classList.toggle("is-complete", box.checked);
-        renderCounts(plan, milestonesFor(plan.variety));
-        renderSwitcher();
+        checkbox.closest("li").classList.toggle("is-complete", checkbox.checked);
+        renderProgressCount(plan, getMilestonesFor(plan.variety));
+        renderPlanList();
     });
 
     // --- Nút "Sửa" ---
-    editBtn.addEventListener("click", function () {
-        refresh();
+    editButton.addEventListener("click", function () {
+        reloadData();
         const plan = getActivePlan();
-        if (plan) startEditing(plan);
+        if (plan) fillFormForEditing(plan);
     });
 
     // --- Nút "Xóa kế hoạch": hỏi xác nhận trước ---
-    deleteBtn.addEventListener("click", function () {
-        refresh();
+    deleteButton.addEventListener("click", function () {
+        reloadData();
         const plan = getActivePlan();
         if (!plan) return;
-        pendingDeleteId = plan.id;
-        dialogName.textContent = plan.name;
-        if (typeof dialog.showModal === "function") {
-            dialog.returnValue = ""; // đặt lại để lần mở trước không ảnh hưởng lần này
-            dialog.showModal(); // mở hộp thoại; phím Esc = hủy
+        planToDeleteId = plan.id;
+        confirmPlanName.textContent = plan.name;
+        if (typeof confirmDialog.showModal === "function") {
+            confirmDialog.returnValue = ""; // đặt lại để lần mở trước không ảnh hưởng lần này
+            confirmDialog.showModal(); // mở hộp thoại; phím Esc = hủy
         } else if (window.confirm('Xóa kế hoạch "' + plan.name + '"? Không thể khôi phục.')) {
             removePlan(plan.id); // trình duyệt quá cũ chưa có <dialog>: dùng hộp thoại có sẵn
         }
     });
 
     // Hộp thoại đóng lại: chỉ xóa khi người dùng bấm nút "Xóa" (value="ok")
-    dialog.addEventListener("close", function () {
-        if (dialog.returnValue === "ok" && pendingDeleteId) removePlan(pendingDeleteId);
-        pendingDeleteId = null;
+    confirmDialog.addEventListener("close", function () {
+        if (confirmDialog.returnValue === "ok" && planToDeleteId) removePlan(planToDeleteId);
+        planToDeleteId = null;
     });
 
     // Bấm ra ngoài hộp thoại (vào vùng nền mờ) = hủy
-    dialog.addEventListener("click", function (event) {
-        if (event.target === dialog) dialog.close("cancel");
+    confirmDialog.addEventListener("click", function (event) {
+        if (event.target === confirmDialog) confirmDialog.close("cancel");
     });
 
-    function removePlan(id) {
-        refresh();
-        const index = store.plans.findIndex(function (p) {
-            return p.id === id;
+    // Xóa một kế hoạch khỏi danh sách rồi chọn kế hoạch khác
+    function removePlan(planId) {
+        reloadData();
+        const index = calendarData.plans.findIndex(function (plan) {
+            return plan.id === planId;
         });
         if (index < 0) return; // đã bị xóa ở tab khác
-        store.plans.splice(index, 1);
+        calendarData.plans.splice(index, 1);
         // Chọn kế hoạch kế tiếp; nếu vừa xóa kế hoạch cuối danh sách thì chọn kế hoạch liền trước
-        const next = store.plans[index] || store.plans[index - 1] || null;
-        store.activeId = next ? next.id : null;
-        save();
-        if (editingId === id) resetForm();
-        showStatus("Đã xóa kế hoạch.");
-        render();
+        const nextPlan = calendarData.plans[index] || calendarData.plans[index - 1] || null;
+        calendarData.activeId = nextPlan ? nextPlan.id : null;
+        saveData();
+        if (editingPlanId === planId) resetFormToCreateMode();
+        announceStatus("Đã xóa kế hoạch.");
+        renderAll();
         // Nút "Xóa" vừa biến mất nên đưa con trỏ bàn phím tới chỗ hợp lý
-        const target = planList.querySelector('[aria-pressed="true"]') || nameInput;
-        target.focus();
+        const focusTarget = planList.querySelector('[aria-pressed="true"]') || nameInput;
+        focusTarget.focus();
     }
 
     // Tab khác thay đổi dữ liệu -> cập nhật lại màn hình này
     window.addEventListener("storage", function (event) {
-        if (event.key !== STORE_KEY) return;
-        store = loadStore();
-        if (editingId && !getActivePlan()) resetForm();
-        render();
+        if (event.key !== STORAGE_KEY) return;
+        calendarData = loadData();
+        if (editingPlanId && !getActivePlan()) resetFormToCreateMode();
+        renderAll();
     });
 
     // ================================================================
     // 6. KHỞI ĐỘNG
     // ================================================================
-    resetForm();
-    render();
-    if (!storageWorks) showError("Trình duyệt đang chặn lưu trữ nên kế hoạch sẽ mất khi tải lại trang.");
+    warnAboutDuplicateDays();
+    resetFormToCreateMode();
+    renderAll();
+    if (!canUseLocalStorage) showError("Trình duyệt đang chặn lưu trữ nên kế hoạch sẽ mất khi tải lại trang.");
 })();

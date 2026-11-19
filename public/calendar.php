@@ -66,8 +66,8 @@ require __DIR__ . '/../includes/header.php';
         <strong id="completedCount">0</strong><span id="totalCount">/ 0 công việc</span>
     </div>
     <div class="calendar-progress__actions">
-        <button class="btn btn-sm btn-outline-secondary" id="editPlan" type="button">Sửa</button>
-        <button class="btn btn-sm btn-outline-secondary" id="deletePlan" type="button">Xóa kế hoạch</button>
+        <button class="plan-action plan-action--edit" id="editPlan" type="button">Sửa</button>
+        <button class="plan-action plan-action--delete" id="deletePlan" type="button">Xóa kế hoạch</button>
     </div>
 </div>
 

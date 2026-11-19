@@ -1683,6 +1683,33 @@ a {
   display: flex;
   gap: .5rem;
 }
+.plan-action {                         /* kiểu chung của nút "Sửa" và "Xóa kế hoạch" */
+  padding: .3rem .85rem;
+  border: 1.5px solid;                 /* màu viền lấy theo màu chữ (xem hai nút bên dưới) */
+  border-radius: .4rem;
+  background: #fff;
+  font-size: .85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.plan-action--edit {                   /* "Sửa": màu xanh lá của website */
+  color: var(--forest);
+}
+.plan-action--edit:hover {
+  color: #fff;
+  background: var(--forest);
+}
+.plan-action--delete {                 /* "Xóa kế hoạch": màu đỏ cà chua, báo hiệu thao tác nguy hiểm */
+  color: var(--tomato);
+}
+.plan-action--delete:hover {
+  color: #fff;
+  background: var(--tomato);
+}
+.plan-action:focus-visible {
+  outline: 3px solid var(--moss);
+  outline-offset: 2px;
+}
 .calendar-empty {
   padding: 2rem 1.25rem;
   border: 1px dashed #c9cfc3;
